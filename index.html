@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحضير المناديب - موقع الملحمة</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 90%;
+            margin: 20px auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .location-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .status-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px 0;
+            transition: transform 0.3s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .distance-indicator {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .coordinates-box {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            direction: ltr;
+            margin: 10px 0;
+        }
+
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .refresh-btn {
+            background: #6c757d;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>📍 تحضير المناديب - موقع الملحمة</h1>
+            
+            <!-- إحداثيات الملحمة (ثابتة) -->
+            <div class="location-card">
+                <h3>موقع الملحمة</h3>
+                <div class="coordinates-box">
+                    خط العرض: 24.7833889<br>
+                    خط الطول: 46.7464722
+                </div>
+                <p style="font-size: 14px; color: #666;">يجب أن تكون داخل نطاق 100 متر من هذا الموقع</p>
+            </div>
+
+            <!-- حالة الموقع -->
+            <div id="locationStatus" class="status-message status-info">
+                ⏳ جاري التحقق من موقعك...
+            </div>
+
+            <!-- المسافة المقدرة -->
+            <div id="distanceDisplay" class="distance-indicator">
+                --
+            </div>
+
+            <!-- أزرار التحكم -->
+            <button onclick="checkLocation()" id="checkBtn">
+                🔍 التحقق من الموقع مرة أخرى
+            </button>
+
+            <!-- النموذج المخفي -->
+            <div id="formContainer" class="hidden">
+                <iframe id="googleForm" 
+                    src="https://docs.google.com/forms/d/e/1FAIpQLSd-3_Z4eLpywPVKWjlHY_ULMOntDGjNDiHEdQgFryxhHsNOPg/viewform?embedded=true"
+                    allow="geolocation">
+                </iframe>
+                <button class="refresh-btn" onclick="refreshForm()">
+                    🔄 تحديث النموذج
+                </button>
+            </div>
+
+            <!-- معلومات إضافية -->
+            <div id="debugInfo" style="font-size: 12px; color: #999; margin-top: 20px; direction: ltr;">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // إحداثيات الملحمة (من قوقل ماب)
+        const TARGET_COORDS = {
+            lat: 24.7833889,
+            lng: 46.7464722
+        };
+        
+        // المسافة المسموح بها بالأمتار
+        const MAX_DISTANCE_METERS = 100; // يمكنك تغيير هذه القيمة
+
+        // رابط النموذج الأصلي
+        const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd-3_Z4eLpywPVKWjlHY_ULMOntDGjNDiHEdQgFryxhHsNOPg/viewform";
+
+        // حساب المسافة بين نقطتين باستخدام صيغة Haversine
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // نصف قطر الأرض بالأمتار
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2 - lat1) * Math.PI/180;
+            const Δλ = (lon2 - lon1) * Math.PI/180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c; // المسافة بالأمتار
+        }
+
+        // طلب الموقع والتحقق منه
+        function checkLocation() {
+            const statusEl = document.getElementById('locationStatus');
+            const distanceEl = document.getElementById('distanceDisplay');
+            const formContainer = document.getElementById('formContainer');
+            const checkBtn = document.getElementById('checkBtn');
+            const debugEl = document.getElementById('debugInfo');
+
+            statusEl.className = 'status-message status-info';
+            statusEl.textContent = '⏳ جاري طلب إذن الوصول إلى موقعك...';
+            checkBtn.disabled = true;
+
+            // التحقق من دعم المتصفح للموقع
+            if (!navigator.geolocation) {
+                statusEl.className = 'status-message status-error';
+                statusEl.textContent = '❌ متصفحك لا يدعم خاصية تحديد الموقع';
+                checkBtn.disabled = false;
+                return;
+            }
+
+            // طلب الموقع بدقة عالية
+            navigator.geolocation.getCurrentPosition(
+                // نجاح تحديد الموقع
+                (position) => {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+
+                    // حساب المسافة
+                    const distance = calculateDistance(
+                        userLat, userLng,
+                        TARGET_COORDS.lat, TARGET_COORDS.lng
+                    );
+
+                    // عرض معلومات التصحيح
+                    debugEl.innerHTML = `
+                        موقعك الحالي:<br>
+                        خط العرض: ${userLat.toFixed(6)}<br>
+                        خط الطول: ${userLng.toFixed(6)}<br>
+                        الدقة: ±${Math.round(accuracy)} متر<br>
+                        المسافة من الملحمة: ${Math.round(distance)} متر
+                    `;
+
+                    // تحديث عرض المسافة
+                    if (distance < 1000) {
+                        distanceEl.textContent = `📏 المسافة: ${Math.round(distance)} متر من الملحمة`;
+                    } else {
+                        distanceEl.textContent = `📏 المسافة: ${(distance/1000).toFixed(2)} كم من الملحمة`;
+                    }
+
+                    // التحقق من المسافة
+                    if (distance <= MAX_DISTANCE_METERS) {
+                        // داخل النطاق المسموح
+                        statusEl.className = 'status-message status-success';
+                        statusEl.textContent = `✅ تم التحقق! أنت داخل موقع الملحمة (على بعد ${Math.round(distance)} متر)`;
+                        
+                        // عرض النموذج
+                        formContainer.classList.remove('hidden');
+                        
+                        // تحديث رابط النموذج مع إضافة معلمات التتبع
+                        const iframe = document.getElementById('googleForm');
+                        iframe.src = `${FORM_URL}?embedded=true&lat=${userLat.toFixed(6)}&lng=${userLng.toFixed(6)}&distance=${Math.round(distance)}`;
+                        
+                    } else {
+                        // خارج النطاق المسموح
+                        statusEl.className = 'status-message status-error';
+                        statusEl.textContent = `❌ أنت خارج موقع الملحمة! المسافة: ${Math.round(distance)} متر (المسموح: ${MAX_DISTANCE_METERS} متر)`;
+                        
+                        // إخفاء النموذج
+                        formContainer.classList.add('hidden');
+                        
+                        // عرض اقتراح
+                        if (distance > MAX_DISTANCE_METERS * 2) {
+                            statusEl.textContent += ' 🏃 يرجى التوجه إلى موقع الملحمة';
+                        }
+                    }
+
+                    checkBtn.disabled = false;
+                },
+                // خطأ في تحديد الموقع
+                (error) => {
+                    let errorMessage = '';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = '❌ تم رفض إذن الوصول للموقع. يرجى السماح بالوصول إلى موقعك';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = '❌ معلومات الموقع غير متوفرة حالياً';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = '❌ انتهت مهلة طلب الموقع';
+                            break;
+                        default:
+                            errorMessage = '❌ حدث خطأ غير معروف';
+                    }
+                    
+                    statusEl.className = 'status-message status-error';
+                    statusEl.textContent = errorMessage;
+                    distanceEl.textContent = '--';
+                    formContainer.classList.add('hidden');
+                    checkBtn.disabled = false;
+                    
+                    debugEl.innerHTML = `خطأ: ${error.message}`;
+                },
+                {
+                    enableHighAccuracy: true, // طلب دقة عالية
+                    timeout: 10000, // انتظار 10 ثوان كحد أقصى
+                    maximumAge: 0 // عدم استخدام موقع قديم
+                }
+            );
+        }
+
+        // تحديث النموذج
+        function refreshForm() {
+            const iframe = document.getElementById('googleForm');
+            iframe.src = iframe.src; // إعادة تحميل الـ iframe
+        }
+
+        // التحقق التلقائي عند تحميل الصفحة
+        window.onload = function() {
+            checkLocation();
+        };
+
+        // إضافة مستمع لتغيير حالة الموقع
+        window.addEventListener('focus', function() {
+            // التحقق مرة أخرى عندما يعود المستخدم للصفحة
+            checkLocation();
+        });
+    </script>
+</body>
+</html>
