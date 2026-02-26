@@ -59,26 +59,33 @@
             border-radius: 50px;
         }
 
-        /* ========== بطاقة الموقع ========== */
-        .location-card {
+        /* ========== بطاقة المواقع ========== */
+        .locations-card {
             background: #e9f0fa;
             border-radius: 30px;
             padding: 20px;
             margin-bottom: 20px;
             border: 2px solid #a3c6ff;
+        }
+        .locations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .location-item {
+            background: #0b2a4f;
+            color: white;
+            padding: 12px;
+            border-radius: 20px;
+            font-size: 14px;
             text-align: center;
         }
-        .coords-box {
-            background: #0b2a4f;
-            color: #fff;
-            padding: 12px;
-            border-radius: 60px;
-            font-family: 'Courier New', monospace;
-            font-size: 18px;
-            letter-spacing: 1px;
-            margin: 15px auto 10px;
-            display: inline-block;
-            direction: ltr;
+        .location-item strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #ffd700;
         }
         .range-badge {
             background: #ff9800;
@@ -89,6 +96,7 @@
             display: inline-block;
             font-size: 20px;
             border: 2px solid white;
+            margin-top: 10px;
         }
 
         /* ========== مؤشرات الحالة ========== */
@@ -229,19 +237,32 @@
             <!-- الهيدر -->
             <div class="header">
                 <h1>
-                    <span>📍</span> بوابة الملحمة <span>📍</span>
+                    <span>📍</span> بوابة فروع الملحمة <span>📍</span>
                 </h1>
-                <p>نظام تسجيل الحضور والانصراف</p>
+                <p>نظام تسجيل الحضور والانصراف - جميع الفروع</p>
             </div>
 
-            <!-- معلومات الموقع -->
-            <div class="location-card">
-                <h2 style="color:#0f2b4b;">موقع الملحمة</h2>
-                <div class="coords-box">
-                    24.7833889, 46.7464722
+            <!-- معلومات المواقع -->
+            <div class="locations-card">
+                <h2 style="color:#0f2b4b; text-align:center;">فروع الملحمة المسموحة</h2>
+                <div class="locations-grid">
+                    <div class="location-item">
+                        <strong>ملحمة شرق الرياض</strong>
+                        24.7833889, 46.7464722
+                    </div>
+                    <div class="location-item">
+                        <strong>ملحمة غرب الرياض</strong>
+                        24.5873640, 46.6228410
+                    </div>
+                    <div class="location-item">
+                        <strong>ملحمة جدة</strong>
+                        21.6180190, 39.1380120
+                    </div>
                 </div>
-                <div class="range-badge">
-                    ⚡ النطاق المسموح: 15 متر فقط
+                <div style="text-align:center;">
+                    <span class="range-badge">
+                        ⚡ النطاق المسموح: 15 متر لكل فرع
+                    </span>
                 </div>
             </div>
 
@@ -297,11 +318,13 @@
 
     <script>
         // -------------------- الإعدادات الثابتة --------------------
-        const TARGET = {
-            lat: 24.7833889,
-            lng: 46.7464722
-        };
-        const MAX_DISTANCE = 15; // 15 متر بالضبط
+        const TARGET_LOCATIONS = [
+            { name: "ملحمة شرق الرياض", lat: 24.7833889, lng: 46.7464722 },
+            { name: "ملحمة غرب الرياض", lat: 24.5873640, lng: 46.6228410 },
+            { name: "ملحمة جدة", lat: 21.6180190, lng: 39.1380120 }
+        ];
+
+        const MAX_DISTANCE = 15; // 15 متر لجميع المواقع
 
         const FORM_LINKS = {
             attendance: "https://docs.google.com/forms/d/e/1FAIpQLSd-3_Z4eLpywPVKWjlHY_ULMOntDGjNDiHEdQgFryxhHsNOPg/viewform",
@@ -323,14 +346,13 @@
                     Math.sin(Δλ/2) * Math.sin(Δλ/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-            return R * c; // مسافة بالمتر
+            return R * c;
         }
 
-        // -------------------- التبديل بين نموذج الحضور والانصراف --------------------
+        // -------------------- التبديل بين النماذج --------------------
         window.showForm = function(type) {
             currentFormType = type;
 
-            // تحديث شكل الأزرار
             document.getElementById('btnAttendance').classList.remove('active');
             document.getElementById('btnDeparture').classList.remove('active');
             if (type === 'attendance') {
@@ -339,7 +361,6 @@
                 document.getElementById('btnDeparture').classList.add('active');
             }
 
-            // إظهار الإطار المناسب
             document.getElementById('formAttendance').classList.add('hidden');
             document.getElementById('formDeparture').classList.add('hidden');
             document.getElementById(`form${type.charAt(0).toUpperCase() + type.slice(1)}`).classList.remove('hidden');
@@ -349,10 +370,10 @@
         window.refreshCurrentForm = function() {
             const iframeId = currentFormType === 'attendance' ? 'attendanceIframe' : 'departureIframe';
             const iframe = document.getElementById(iframeId);
-            iframe.src = iframe.src; // إعادة تحميل
+            iframe.src = iframe.src;
         };
 
-        // -------------------- الوظيفة الرئيسية للتحقق من الموقع --------------------
+        // -------------------- التحقق من الموقع (لجميع الفروع) --------------------
         window.checkLocation = function() {
             const statusEl = document.getElementById('statusMessage');
             const distanceEl = document.getElementById('distanceDisplay');
@@ -361,11 +382,10 @@
             const debugEl = document.getElementById('debugInfo');
 
             statusEl.className = 'status-box status-info';
-            statusEl.textContent = '⏳ انتظر... جلب الموقع بدقة عالية';
+            statusEl.textContent = '⏳ جاري تحديد موقعك الجغرافي...';
             checkBtn.disabled = true;
-            formsSection.classList.add('hidden'); // نخفي النماذج مؤقتاً
+            formsSection.classList.add('hidden');
 
-            // التحقق من دعم المتصفح
             if (!navigator.geolocation) {
                 statusEl.className = 'status-box status-error';
                 statusEl.textContent = '❌ متصفحك لا يدعم خاصية تحديد الموقع';
@@ -374,50 +394,60 @@
             }
 
             navigator.geolocation.getCurrentPosition(
-                // حالة النجاح
                 (position) => {
                     const userLat = position.coords.latitude;
                     const userLng = position.coords.longitude;
                     const accuracy = position.coords.accuracy;
 
-                    // حساب المسافة
-                    const dist = calculateDistance(userLat, userLng, TARGET.lat, TARGET.lng);
+                    // البحث عن أقرب موقع
+                    let closestDistance = Infinity;
+                    let closestLocation = null;
 
-                    // عرض معلومات التصحيح
-                    debugEl.innerHTML = `📡 موقعك: (${userLat.toFixed(6)}, ${userLng.toFixed(6)})<br>🎯 الدقة: ±${Math.round(accuracy)}م | المسافة: ${Math.round(dist)}م`;
-
-                    // عرض المسافة بشكل مفهوم
-                    if (dist < 1000) {
-                        distanceEl.textContent = `🏃 ${Math.round(dist)} متر`;
-                    } else {
-                        distanceEl.textContent = `🚗 ${(dist/1000).toFixed(2)} كم`;
+                    for (let location of TARGET_LOCATIONS) {
+                        const dist = calculateDistance(userLat, userLng, location.lat, location.lng);
+                        if (dist < closestDistance) {
+                            closestDistance = dist;
+                            closestLocation = location;
+                        }
                     }
 
-                    // --- القرار: داخل النطاق أم لا ---
-                    if (dist <= MAX_DISTANCE) {
-                        // داخل الـ 15 متر
-                        statusEl.className = 'status-box status-success';
-                        statusEl.textContent = `✅ أنت داخل الملحمة (على بعد ${Math.round(dist)}م)`;
-                        formsSection.classList.remove('hidden'); // نعرض النماذج
+                    // معلومات التصحيح
+                    debugEl.innerHTML = `
+                        📍 موقعك: (${userLat.toFixed(6)}, ${userLng.toFixed(6)})<br>
+                        🎯 الدقة: ±${Math.round(accuracy)}م<br>
+                        🏢 أقرب فرع: ${closestLocation?.name}<br>
+                        📏 المسافة: ${Math.round(closestDistance)}م
+                    `;
 
-                        // إضافة بارامترات التتبع للنماذج (اختياري)
+                    // عرض المسافة
+                    if (closestDistance < 1000) {
+                        distanceEl.textContent = `🏃 ${Math.round(closestDistance)} متر`;
+                    } else {
+                        distanceEl.textContent = `🚗 ${(closestDistance/1000).toFixed(2)} كم`;
+                    }
+
+                    // التحقق من المسافة
+                    if (closestDistance <= MAX_DISTANCE) {
+                        statusEl.className = 'status-box status-success';
+                        statusEl.textContent = `✅ أنت داخل ${closestLocation.name} (على بعد ${Math.round(closestDistance)}م)`;
+                        formsSection.classList.remove('hidden');
+                        
+                        // تحديث روابط النماذج مع إضافة معلومات الموقع
                         const attIframe = document.getElementById('attendanceIframe');
                         const depIframe = document.getElementById('departureIframe');
-                        const trackParam = `&lat=${userLat.toFixed(6)}&lng=${userLng.toFixed(6)}&d=${Math.round(dist)}`;
-                        // نحدث الـ src مع الحفاظ على الـ embedded=true
+                        const trackParam = `&lat=${userLat.toFixed(6)}&lng=${userLng.toFixed(6)}&d=${Math.round(closestDistance)}&branch=${encodeURIComponent(closestLocation.name)}`;
+                        
                         attIframe.src = `${FORM_LINKS.attendance}?embedded=true${trackParam}`;
                         depIframe.src = `${FORM_LINKS.departure}?embedded=true${trackParam}`;
-
+                        
                     } else {
-                        // خارج النطاق
                         statusEl.className = 'status-box status-error';
-                        statusEl.textContent = `❌ خارج الملحمة! المسافة: ${Math.round(dist)}م (يسمح بـ ${MAX_DISTANCE}م فقط)`;
+                        statusEl.textContent = `❌ أنت خارج جميع الفروع! أقرب فرع: ${closestLocation?.name} (${Math.round(closestDistance)}م)`;
                         formsSection.classList.add('hidden');
                     }
 
                     checkBtn.disabled = false;
                 },
-                // حالة الخطأ
                 (error) => {
                     let msg = '';
                     if (error.code === 1) msg = '❌ تم رفض الإذن. سماح بالموقع ضروري.';
@@ -440,14 +470,12 @@
             );
         };
 
-        // -------------------- التشغيل التلقائي عند تحميل الصفحة --------------------
+        // -------------------- التشغيل التلقائي --------------------
         window.onload = function() {
             checkLocation();
         };
 
-        // عند العودة للصفحة (مثلاً بعد السماح بالموقع) نتحقق مجدداً
         window.addEventListener('focus', function() {
-            // نتحقق مرة أخرى بعد ثانية واحدة
             setTimeout(checkLocation, 500);
         });
     </script>
